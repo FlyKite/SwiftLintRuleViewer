@@ -7,13 +7,20 @@
 
 import UIKit
 
-class ViewController: UIViewController {
+class ViewController: UISplitViewController {
+    
+    private let listController: RuleListViewController = RuleListViewController()
+    private let ruleController: RuleViewController = RuleViewController()
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Do any additional setup after loading the view.
+        listController.delegate = self
+        self.viewControllers = [listController, ruleController]
     }
-
-
 }
 
+extension ViewController: RuleListViewControllerDelegate {
+    func ruleListControllerDidSelectRule(rule: Rule) {
+        ruleController.rule = rule
+    }
+}
