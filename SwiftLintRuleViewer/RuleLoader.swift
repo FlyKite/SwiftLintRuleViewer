@@ -13,36 +13,46 @@ class RuleLoader {
     private let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
     
     func loadRules(completion: @escaping ([Rule]) -> Void) {
-        loadRuleList { (list) in
+        loadRuleList { (result) in
             DispatchQueue.global().async {
                 var rules: [Rule] = []
-                for item in list {
-                    guard let url = URL(string: "https://realm.github.io/SwiftLint/\(item.url)") else { continue }
-                    self.loadRule(url: url) { (rule) in
-                        rules.append(rule)
-                        self.semaphore.signal()
+                switch result {
+                case let .success(list):
+                    for item in list {
+                        guard let url = URL(string: "https://realm.github.io/SwiftLint/\(item.url)") else { continue }
+                        self.loadRule(url: url) { (result) in
+                            switch result {
+                            case let .success(rule):
+                                rules.append(rule)
+                            case let .failure(error):
+                                print(error)
+                            }
+                            self.semaphore.signal()
+                        }
+                        self.semaphore.wait()
                     }
-                    self.semaphore.wait()
+                case let .failure(error):
+                    print(error)
                 }
                 completion(rules)
             }
         }
     }
     
-    private func loadRule(url: URL, completion: @escaping (Rule) -> Void) {
+    private func loadRule(url: URL, completion: @escaping (Result<Rule, Error>) -> Void) {
         let request = AF.request(url).responseString { (response) in
             switch response.result {
             case let .success(html):
                 DispatchQueue.global().async {
                     do {
                         let rule = try self.handleRule(html: html)
-                        completion(rule)
+                        completion(.success(rule))
                     } catch {
-                        print(error)
+                        completion(.failure(error))
                     }
                 }
             case let .failure(error):
-                print(error)
+                completion(.failure(error))
             }
         }
         request.resume()
@@ -124,7 +134,7 @@ class RuleLoader {
         var url: String
     }
 
-    private func loadRuleList(completion: @escaping ([RuleItem]) -> Void) {
+    private func loadRuleList(completion: @escaping (Result<[RuleItem], Error>) -> Void) {
         let url = URL(string: "https://realm.github.io/SwiftLint/rule-directory.html")!
         let request = AF.request(url).responseString { (response) in
             switch response.result {
@@ -132,13 +142,13 @@ class RuleLoader {
                 DispatchQueue.global().async {
                     do {
                         let rules = try self.handleRuleList(html: html)
-                        completion(rules)
+                        completion(.success(rules))
                     } catch {
-                        print(error)
+                        completion(.failure(error))
                     }
                 }
             case let .failure(error):
-                print(error)
+                completion(.failure(error))
             }
         }
         request.resume()

@@ -42,19 +42,46 @@ class RuleListViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupViews()
+        let path = "\(NSHomeDirectory())/Documents/rules.json"
+        if FileManager.default.fileExists(atPath: path) {
+            loadRules(at: path)
+        } else {
+            downloadRules(to: path)
+        }
+    }
+    
+    private func loadRules(at path: String) {
         DispatchQueue.global().async {
             do {
-                guard let url = Bundle.main.url(forResource: "rules", withExtension: "json") else { return }
+                let url = URL(fileURLWithPath: path)
                 let data = try Data(contentsOf: url)
                 let rules = try JSONDecoder().decode([Rule].self, from: data)
-                self.enabledRules = rules.filter { $0.attributes.enabledByDefault }
-                self.disabledRules = rules.filter { !$0.attributes.enabledByDefault }
-                DispatchQueue.main.async {
-                    self.tableView.reloadData()
-                }
+                self.handleRules(rules: rules)
             } catch {
                 print(error)
             }
+        }
+    }
+    
+    private func downloadRules(to path: String) {
+        RuleLoader().loadRules { (rules) in
+            DispatchQueue.global().async {
+                do {
+                    self.handleRules(rules: rules)
+                    let data = try JSONEncoder().encode(rules)
+                    try data.write(to: URL(fileURLWithPath: path))
+                } catch {
+                    print(error)
+                }
+            }
+        }
+    }
+    
+    private func handleRules(rules: [Rule]) {
+        self.enabledRules = rules.filter { $0.attributes.enabledByDefault }
+        self.disabledRules = rules.filter { !$0.attributes.enabledByDefault }
+        DispatchQueue.main.async {
+            self.tableView.reloadData()
         }
     }
 }
