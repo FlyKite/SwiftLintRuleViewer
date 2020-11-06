@@ -43,10 +43,17 @@ class RuleListViewController: UIViewController {
     
     private let tableView: UITableView = UITableView()
     private let searchBar: UISearchBar = UISearchBar()
+    private let loadingView: UIActivityIndicatorView = UIActivityIndicatorView(style: .large)
+    private let loadingLabel: UILabel = UILabel()
 
     override func viewDidLoad() {
         super.viewDidLoad()
         setupViews()
+        loadingView.startAnimating()
+        loadingView.isHidden = false
+        loadingLabel.isHidden = false
+        loadingLabel.text = "正在加载..."
+        tableView.isHidden = true
         let path = "\(NSHomeDirectory())/Documents/rules.json"
         if FileManager.default.fileExists(atPath: path) {
             loadRules(at: path)
@@ -56,6 +63,7 @@ class RuleListViewController: UIViewController {
     }
     
     private func loadRules(at path: String) {
+        loadingLabel.text = "正在加载..."
         DispatchQueue.global().async {
             do {
                 let url = URL(fileURLWithPath: path)
@@ -69,7 +77,16 @@ class RuleListViewController: UIViewController {
     }
     
     private func downloadRules(to path: String) {
-        RuleLoader().loadRules { (rules) in
+        RuleLoader().loadRules { (progress) in
+            DispatchQueue.main.async {
+                switch progress {
+                case .loadingList:
+                    self.loadingLabel.text = "正在加载目录..."
+                case let .loadingRules(count, totalCount):
+                    self.loadingLabel.text = "\(count)/\(totalCount)"
+                }
+            }
+        } completion: { (rules) in
             DispatchQueue.global().async {
                 do {
                     self.handleRules(rules: rules)
@@ -86,6 +103,10 @@ class RuleListViewController: UIViewController {
         self.enabledRules = rules.filter { $0.attributes.enabledByDefault }
         self.disabledRules = rules.filter { !$0.attributes.enabledByDefault }
         DispatchQueue.main.async {
+            self.loadingView.stopAnimating()
+            self.loadingView.isHidden = true
+            self.loadingLabel.isHidden = true
+            self.tableView.isHidden = false
             self.tableView.reloadData()
         }
     }
@@ -157,6 +178,8 @@ extension RuleListViewController: UISearchBarDelegate {
 
 extension RuleListViewController {
     private func setupViews() {
+        view.backgroundColor = .systemBackground
+        
         tableView.dataSource = self
         tableView.delegate = self
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
@@ -165,10 +188,24 @@ extension RuleListViewController {
         searchBar.delegate = self
         tableView.tableHeaderView = searchBar
         
+        loadingLabel.font = UIFont.systemFont(ofSize: 16)
+        
         view.addSubview(tableView)
+        view.addSubview(loadingView)
+        view.addSubview(loadingLabel)
         
         tableView.snp.makeConstraints { (make) in
             make.edges.equalToSuperview()
+        }
+        
+        loadingView.snp.makeConstraints { (make) in
+            make.centerX.equalToSuperview()
+            make.centerY.equalToSuperview().offset(-80)
+        }
+        
+        loadingLabel.snp.makeConstraints { (make) in
+            make.centerX.equalToSuperview()
+            make.top.equalTo(loadingView.snp.bottom).offset(12)
         }
     }
 }

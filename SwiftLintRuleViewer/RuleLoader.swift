@@ -12,17 +12,25 @@ class RuleLoader {
     
     private let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
     
-    func loadRules(completion: @escaping ([Rule]) -> Void) {
+    enum Progress {
+        case loadingList
+        case loadingRules(count: Int, totalCount: Int)
+    }
+    
+    func loadRules(progressHandler: ((Progress) -> Void)? = nil, completion: @escaping ([Rule]) -> Void) {
+        progressHandler?(.loadingList)
         loadRuleList { (result) in
             DispatchQueue.global().async {
                 var rules: [Rule] = []
                 switch result {
                 case let .success(list):
+                    progressHandler?(.loadingRules(count: 0, totalCount: list.count))
                     for item in list {
                         guard let url = URL(string: "https://realm.github.io/SwiftLint/\(item.url)") else { continue }
                         self.loadRule(url: url) { (result) in
                             switch result {
                             case let .success(rule):
+                                progressHandler?(.loadingRules(count: rules.count, totalCount: list.count))
                                 rules.append(rule)
                             case let .failure(error):
                                 print(error)
