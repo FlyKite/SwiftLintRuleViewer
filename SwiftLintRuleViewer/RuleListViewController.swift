@@ -37,7 +37,12 @@ class RuleListViewController: UIViewController {
     private var enabledRules: [Rule] = []
     private var disabledRules: [Rule] = []
     
+    private var showSearchResult: Bool = false
+    private var enabledSearchResult: [Rule] = []
+    private var disabledSearchResult: [Rule] = []
+    
     private let tableView: UITableView = UITableView()
+    private let searchBar: UISearchBar = UISearchBar()
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -92,31 +97,61 @@ extension RuleListViewController: UITableViewDataSource {
     }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return section == 0 ? enabledRules.count : disabledRules.count
+        if showSearchResult {
+            return section == 0 ? enabledSearchResult.count : disabledSearchResult.count
+        } else {
+            return section == 0 ? enabledRules.count : disabledRules.count
+        }
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
-        if indexPath.section == 0 {
-            cell.textLabel?.text = enabledRules[indexPath.row].name
+        let rule: Rule
+        if showSearchResult {
+            rule = indexPath.section == 0 ? enabledSearchResult[indexPath.row] : disabledSearchResult[indexPath.row]
         } else {
-            cell.textLabel?.text = disabledRules[indexPath.row].name
+            rule = indexPath.section == 0 ? enabledRules[indexPath.row] : disabledRules[indexPath.row]
         }
+        cell.textLabel?.text = rule.name
         return cell
     }
 }
 
 extension RuleListViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        if indexPath.section == 0 {
-            delegate?.ruleListControllerDidSelectRule(rule: enabledRules[indexPath.row])
+        let rule: Rule
+        if showSearchResult {
+            rule = indexPath.section == 0 ? enabledSearchResult[indexPath.row] : disabledSearchResult[indexPath.row]
         } else {
-            delegate?.ruleListControllerDidSelectRule(rule: disabledRules[indexPath.row])
+            rule = indexPath.section == 0 ? enabledRules[indexPath.row] : disabledRules[indexPath.row]
         }
+        delegate?.ruleListControllerDidSelectRule(rule: rule)
     }
     
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         return section == 0 ? "Enabled Rules" : "Disabled Rules"
+    }
+}
+
+extension RuleListViewController: UISearchBarDelegate {
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        guard let text = searchBar.text?.lowercased(), !text.isEmpty else {
+            showSearchResult = false
+            tableView.reloadData()
+            return
+        }
+        showSearchResult = true
+        DispatchQueue.global().async {
+            self.enabledSearchResult = self.enabledRules.filter { (rule) in
+                return rule.name.lowercased().contains(text) || rule.attributes.identifier.contains(text)
+            }
+            self.disabledSearchResult = self.disabledRules.filter { (rule) in
+                return rule.name.lowercased().contains(text) || rule.attributes.identifier.contains(text)
+            }
+            DispatchQueue.main.async {
+                self.tableView.reloadData()
+            }
+        }
     }
 }
 
@@ -125,6 +160,10 @@ extension RuleListViewController {
         tableView.dataSource = self
         tableView.delegate = self
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
+        
+        searchBar.frame = CGRect(x: 0, y: 0, width: view.bounds.width, height: 56)
+        searchBar.delegate = self
+        tableView.tableHeaderView = searchBar
         
         view.addSubview(tableView)
         
