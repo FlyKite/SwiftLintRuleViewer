@@ -103,9 +103,9 @@ class RuleLoader {
                 isTriggering = true
             } else if node.tagName() == "pre" {
                 if isTriggering {
-                    triggeringExamples.append(try node.html())
+                    triggeringExamples.append(try node.outerHtml())
                 } else {
-                    nonTriggeringExamples.append(try node.html())
+                    nonTriggeringExamples.append(try node.outerHtml())
                 }
             }
             index += 1

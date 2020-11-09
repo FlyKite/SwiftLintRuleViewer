@@ -62,6 +62,11 @@ class RuleListViewController: UIViewController {
         }
     }
     
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: true)
+    }
+    
     private func loadRules(at path: String) {
         loadingLabel.text = "正在加载..."
         DispatchQueue.global().async {
@@ -89,6 +94,7 @@ class RuleListViewController: UIViewController {
         } completion: { (rules) in
             DispatchQueue.global().async {
                 do {
+                    guard !rules.isEmpty else { return }
                     self.handleRules(rules: rules)
                     let data = try JSONEncoder().encode(rules)
                     try data.write(to: URL(fileURLWithPath: path))
@@ -183,19 +189,26 @@ extension RuleListViewController {
         tableView.dataSource = self
         tableView.delegate = self
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
+        tableView.keyboardDismissMode = .onDrag
         
-        searchBar.frame = CGRect(x: 0, y: 0, width: view.bounds.width, height: 56)
         searchBar.delegate = self
-        tableView.tableHeaderView = searchBar
         
         loadingLabel.font = UIFont.systemFont(ofSize: 16)
         
+        view.addSubview(searchBar)
         view.addSubview(tableView)
         view.addSubview(loadingView)
         view.addSubview(loadingLabel)
         
+        searchBar.snp.makeConstraints { (make) in
+            make.top.equalTo(view.safeAreaLayoutGuide)
+            make.left.right.equalToSuperview()
+            make.height.equalTo(56)
+        }
+        
         tableView.snp.makeConstraints { (make) in
-            make.edges.equalToSuperview()
+            make.top.equalTo(searchBar.snp.bottom)
+            make.left.bottom.right.equalToSuperview()
         }
         
         loadingView.snp.makeConstraints { (make) in
